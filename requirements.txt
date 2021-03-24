@@ -1,0 +1,5 @@
+pid==3.0.4
+python-dotenv==0.15.0
+pyzmq==20.0.0
+selenium==3.141.0
+undetected-chromedriver==2.2.0
