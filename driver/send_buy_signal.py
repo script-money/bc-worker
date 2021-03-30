@@ -1,20 +1,19 @@
 import zmq
 import logging
-import asyncio
-from .loggers import setup_logging_pre
+from loggers import setup_logging_pre
 
 logger = logging.getLogger(__name__)
 
-async def main():
+def main():
     setup_logging_pre()
     context = zmq.Context()
-    socket = context.socket(zmq.PUB)
-    socket.bind('tcp://*:5555')
-    bitclout = 0.0001
+    socket = context.socket(zmq.PUSH)
+    socket.connect('tcp://localhost:5557')
+    usd = 0.00011 # 最低0.000100245usd
     username = "scriptmoney"
-    signal = '0'+' '+username+' '+str(bitclout)
+    signal = '0'+' '+username+' '+str(usd)
     logger.info(f"send: {signal}")
     socket.send_string(signal)
 
-asyncio.run(main())
+main()
 

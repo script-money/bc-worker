@@ -24,6 +24,7 @@ def worker(_thread_index, _private_key, _queue):
     while True:
         if not sub_worker.is_busy and not _queue.empty():
             signal = _queue.get()
+            logger.info(f"signal:{signal}")
             op = str(signal, 'utf_8')
             parameters = op.split(' ')
             sub_worker.dispatcher(parameters[0], parameters[1:])
@@ -40,10 +41,8 @@ def main():
         queue_instance = queue.Queue(queue_size)
 
         context = zmq.Context()
-
-        socket = context.socket(zmq.SUB)
-        socket.connect('tcp://0.0.0.0:5555')
-        socket.setsockopt_string(zmq.SUBSCRIBE, '')
+        receiver = context.socket(zmq.PULL)
+        receiver.bind('tcp://*:5557')
 
         private_key = check_account()
         if private_key is None:
@@ -55,7 +54,7 @@ def main():
                 t, private_key, queue_instance), daemon=True).start()
 
         while True:
-            msg = socket.recv()
+            msg = receiver.recv()
             logger.info(f"recieve message: {msg}")
             try:
                 queue_instance.put(msg, block=False)

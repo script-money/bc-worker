@@ -27,7 +27,8 @@ class Worker:
         self.headless = False
         self.private_key = private_key
         self.wallet:dict = { } 
-        self.balance = 0
+        self.balance_bitclout = 0
+        self.balance_usd = 0
         capa = DesiredCapabilities.CHROME
         chrome_options = Options()
         if self.headless:
@@ -70,8 +71,10 @@ class Worker:
             )
             wallet_button.click()
             time.sleep(2)
-            self.balance = float(self.driver.find_element_by_xpath("//div[@class='col-9']/div[1]").text)
-            logger.info(f"get balance success: {self.balance}")
+            self.balance_bitclout = float(self.driver.find_element_by_xpath("//div[@class='col-9']/div[1]").text)
+            balance_usd = self.driver.find_element_by_xpath("//div[@class='col-9']/div[2]").text
+            self.balance_usd = float(balance_usd[3:-4])
+            logger.info(f"balance_bitclout: {self.balance_bitclout}, balance_usd: {self.balance_usd}")
             coin_name_elements = self.driver.find_elements_by_xpath("//div[@class='text-truncate holdings__name']/span")
             coin_count_elements = self.driver.find_elements_by_xpath("//div[@class='text-grey8A fs-12px text-right']")
             self.wallet = dict(zip([coin_name_element.text for coin_name_element in coin_name_elements], [float(coin_count_element.text) for coin_count_element in coin_count_elements]))
@@ -97,8 +100,64 @@ class Worker:
         else:
             logger.warning(f'无法解析信号:{signal}')
 
-    def buy(self, username:str, bitclout:str):
-        logging.info(f"want to buy {username} in {bitclout} bitclout")
+    def buy(self, username:str, usd_str:str):
+        usd = float(usd_str)
+        if usd > self.balance_usd:
+            logging.error("超出最大可购买本金")
+        logging.info(f"want to buy {username} in {usd} usd")
+        buy_page_url = f"https://bitclout.com/u/{username}/buy"
+        try:
+            self.is_busy = True
+            self.driver.execute_script("window.open('');")
+            tab = self.driver.window_handles[-1]
+            self.driver.switch_to.window(tab)
+            self.driver.get(buy_page_url)      
+            unit_input = self.wait.until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, "//input[@name='amount']"))
+            )
+            unit_input.click()
+            unit_input.send_keys(usd_str)
+            review_button = self.wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, "//div[@class='pb-3 pt-3']/a[not(contains(@class,'disable'))]")) # Review
+            )
+            review_button.click()
+            confirm_buy_button = self.wait.until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, "//button[contains(text(),'Confirm Buy')]"))
+            )
+            recieve_number_str = self.driver.find_element_by_xpath("//trade-creator-table/div[2]/div").text
+            recieve_number = float(recieve_number_str.split(' ')[0])
+            bitclout_str = self.driver.find_element_by_xpath("//trade-creator-table/div[3]/div").text
+            price_per_coin = float(bitclout_str.split(' ')[0][1:])
+            logger.info(f"recieve_number: {recieve_number}; price_per_coin: {price_per_coin}")
+
+            confirm_buy_button.click()                 
+            WebDriverWait(self.driver, 30).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, "//span[@class='ml-10px text-primary']"))
+            )# 购买成功的蓝色字
+            spend_bitclout = recieve_number * price_per_coin
+            logger.info(f"购买成功, 花费了{spend_bitclout:.9f} bitclout, 等同于 ${usd:.7f} ")
+            self.balance_bitclout -= spend_bitclout
+            self.balance_usd -= usd
+        except Exception as e:
+            logger.error(f"buying error: {e}")
+        finally:
+            self.driver.close()
+            self.switch_to_tab(0)
+            self.is_busy = False
+            return
 
     def sell(self, username:str, coin:str):
         logging.info(f"want to sell {coin} {username} coin")
+
+    def open_new_tab(self):
+        self.driver.execute_script("window.open('');")
+        tab = self.driver.window_handles[-1]
+        self.driver.switch_to.window(tab)
+
+    def switch_to_tab(self, index):
+        tab = self.driver.window_handles[index]
+        self.driver.switch_to.window(tab)
