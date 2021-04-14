@@ -78,9 +78,9 @@ class Worker:
             self.balance_usd = float(balance_usd[3:-4])
             logger.info(f"balance_bitclout: {self.balance_bitclout}, balance_usd: {self.balance_usd}")
             coin_name_elements = self.driver.find_elements_by_xpath("//div[@class='text-truncate holdings__name']/span")
-            logger.info(f"coin_name_elements: {len(coin_name_elements)}")
+            # logger.info(f"coin_name_elements: {len(coin_name_elements)}")
             coin_count_elements = self.driver.find_elements_by_xpath("//div[@class='text-grey8A fs-12px text-right']")
-            logger.info(f"coin_count_elements: {len(coin_count_elements)}")
+            # logger.info(f"coin_count_elements: {len(coin_count_elements)}")
             self.wallet = dict(zip([coin_name_element.text for coin_name_element in coin_name_elements], [float(coin_count_element.text) for coin_count_element in coin_count_elements]))
             logger.info(f"get wallet success: {self.wallet}")
             logger.info("login complete")
@@ -95,12 +95,15 @@ class Worker:
         '''
             BUY = 0,
             SELL = 1
+            FOLLOW+DM = 7
         '''
         signal = int(signal_index)
         if signal == 0:
             self.buy(*args)
         elif signal == 1:
             self.sell(*args)
+        elif signal == 7:
+            self.follow_and_dm(*args)
         else:
             logger.warning(f'无法解析信号:{signal}')
 
@@ -156,6 +159,9 @@ class Worker:
 
     def sell(self, username:str, coin:str):
         logging.info(f"want to sell {coin} {username} coin")
+
+    def follow_and_dm(self, username:str):
+        logging.info(f"want to follow_and_dm {username}")
 
     def open_new_tab(self):
         self.driver.execute_script("window.open('');")
