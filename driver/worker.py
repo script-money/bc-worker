@@ -32,7 +32,8 @@ class Worker:
         capa = DesiredCapabilities.CHROME
         chrome_options = Options()
         proxy_server = os.getenv('PROXY_URL')
-        chrome_options.add_argument(f'--proxy-server={proxy_server}')
+        if proxy_server != "" and proxy_server != None:
+            chrome_options.add_argument(f'--proxy-server={proxy_server}')
         if self.headless:
             chrome_options.add_argument('--headless')
             chrome_options.add_argument(
