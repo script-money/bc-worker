@@ -8,4 +8,5 @@
 
 ## 启动
 
-输入`python driver/run.py`运行worker，会打开chrome自动登录账户并读取余额，并监听信号。
+1. 输入`python driver/run.py`运行worker，会打开chrome自动登录账户并读取余额，并监听信号。
+2. 新开一个窗口，输入`export FLASK_APP=driver/server.py`，然后输入`flask run --host=0.0.0.0`启动web服务
