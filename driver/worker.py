@@ -1,32 +1,34 @@
+import os
+from dotenv import load_dotenv
+import logging
+from enum import Enum
+import re
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium import webdriver
+import time
 import undetected_chromedriver as uc
 uc.install()
 
-import time
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.chrome.options import Options
-import re
-from enum import Enum
-import logging
-from dotenv import load_dotenv
-import os
 
 logger = logging.getLogger(__name__)
+
 
 class Signal(Enum):
     BUY = 0,
     SELL = 1
 
+
 class Worker:
-    def __init__(self, name:str, private_key:str) -> None:
+    def __init__(self, name: str, private_key: str) -> None:
         self.is_busy = False
         self.name = name
         self.headless = True
         self.private_key = private_key
-        self.wallet:dict = { } 
+        self.wallet: dict = {}
         self.balance_bitclout = 0
         self.balance_usd = 0
         capa = DesiredCapabilities.CHROME
@@ -38,7 +40,6 @@ class Worker:
             chrome_options.add_argument('--headless')
             chrome_options.add_argument('--disable-gpu')
             chrome_options.add_argument("--window-size=1280, 800")
-            pass  
         capa["pageLoadStrategy"] = "eager"
         self.driver = webdriver.Chrome(
             desired_capabilities=capa, chrome_options=chrome_options)
@@ -48,7 +49,8 @@ class Worker:
         logger.info(f"headless mode: {self.headless}")
         self.is_busy = True
         try:
-            self.driver.get("https://bitclout.com/?password=825bbae8589b65720731d867f436471e18683c6a3192a20140105ee1733bb7cc")
+            self.driver.get(
+                "https://bitclout.com/?password=825bbae8589b65720731d867f436471e18683c6a3192a20140105ee1733bb7cc")
             login_in = self.wait.until(
                 EC.visibility_of_element_located(
                     (By.XPATH, "//div[@class='slide-up-2']//a[@class='landing__log-in d-none d-md-block'][contains(text(),'Log in')]"))
@@ -64,7 +66,7 @@ class Worker:
                 input_box.send_keys(ch)
             self.driver.find_element_by_xpath(
                 "//button[contains(text(),'Load Account')]").click()
-            
+
             # read wallet
             wallet_button = self.wait.until(
                 EC.element_to_be_clickable(
@@ -72,13 +74,19 @@ class Worker:
             )
             wallet_button.click()
             time.sleep(2)
-            self.balance_bitclout = float(self.driver.find_element_by_xpath("//div[@class='col-9']/div[1]").text)
-            balance_usd = self.driver.find_element_by_xpath("//div[@class='col-9']/div[2]").text
+            self.balance_bitclout = float(self.driver.find_element_by_xpath(
+                "//div[@class='col-9']/div[1]").text)
+            balance_usd = self.driver.find_element_by_xpath(
+                "//div[@class='col-9']/div[2]").text
             self.balance_usd = float(balance_usd[3:-4])
-            logger.info(f"balance_bitclout: {self.balance_bitclout}, balance_usd: {self.balance_usd}")
-            coin_name_elements = self.driver.find_elements_by_xpath("//div[@class='text-truncate holdings__name']/span")
-            coin_count_elements = self.driver.find_elements_by_xpath("//div[@class='text-grey8A fs-12px text-right']")
-            self.wallet = dict(zip([coin_name_element.text for coin_name_element in coin_name_elements], [float(coin_count_element.text) for coin_count_element in coin_count_elements]))
+            logger.info(
+                f"balance_bitclout: {self.balance_bitclout}, balance_usd: {self.balance_usd}")
+            coin_name_elements = self.driver.find_elements_by_xpath(
+                "//div[@class='text-truncate holdings__name']/span")
+            coin_count_elements = self.driver.find_elements_by_xpath(
+                "//div[@class='text-grey8A fs-12px text-right']")
+            self.wallet = dict(zip([coin_name_element.text for coin_name_element in coin_name_elements], [
+                               float(coin_count_element.text) for coin_count_element in coin_count_elements]))
             logger.info(f"get wallet success: {self.wallet}")
             logger.info("login complete")
         except Exception as e:
@@ -86,7 +94,7 @@ class Worker:
             self.driver.save_screenshot('error_screenshot.png')
             self.driver.close()
         finally:
-            self.is_busy = False       
+            self.is_busy = False
 
     def dispatcher(self, signal_index, args):
         '''
@@ -111,7 +119,7 @@ class Worker:
         else:
             logger.warning(f'无法解析信号:{signal}')
 
-    def buy(self, username:str, usd_str:str):
+    def buy(self, username: str, usd_str: str):
         usd = float(usd_str)
         if usd > self.balance_usd:
             logging.error("超出最大可购买本金")
@@ -119,10 +127,7 @@ class Worker:
         buy_page_url = f"https://bitclout.com/u/{username}/buy"
         try:
             self.is_busy = True
-            self.driver.execute_script("window.open('');")
-            tab = self.driver.window_handles[-1]
-            self.driver.switch_to.window(tab)
-            self.driver.get(buy_page_url)      
+            self.driver.get(buy_page_url)
             unit_input = self.wait.until(
                 EC.element_to_be_clickable(
                     (By.XPATH, "//input[@name='amount']"))
@@ -131,49 +136,49 @@ class Worker:
             unit_input.send_keys(usd_str)
             review_button = self.wait.until(
                 EC.presence_of_element_located(
-                    (By.XPATH, "//div[@class='pb-3 pt-3']/a[not(contains(@class,'disable'))]")) # Review
+                    (By.XPATH, "//div[@class='pb-3 pt-3']/a[not(contains(@class,'disable'))]"))  # Review
             )
             review_button.click()
             confirm_buy_button = self.wait.until(
                 EC.element_to_be_clickable(
                     (By.XPATH, "//button[contains(text(),'Confirm Buy')]"))
             )
-            recieve_number_str = self.driver.find_element_by_xpath("//trade-creator-table/div[2]/div").text
+            recieve_number_str = self.driver.find_element_by_xpath(
+                "//trade-creator-table/div[2]/div").text
             recieve_number = float(recieve_number_str.split(' ')[0])
-            bitclout_str = self.driver.find_element_by_xpath("//trade-creator-table/div[3]/div").text
+            bitclout_str = self.driver.find_element_by_xpath(
+                "//trade-creator-table/div[3]/div").text
             price_per_coin = float(bitclout_str.split(' ')[0][1:])
-            logger.info(f"recieve_number: {recieve_number}; price_per_coin: {price_per_coin}")
+            logger.info(
+                f"recieve_number: {recieve_number}; price_per_coin: {price_per_coin}")
 
-            confirm_buy_button.click()                 
+            confirm_buy_button.click()
             WebDriverWait(self.driver, 30).until(
                 EC.presence_of_element_located(
                     (By.XPATH, "//span[@class='ml-10px text-primary']"))
-            )# 购买成功的蓝色字
+            )  # 购买成功的蓝色字
             spend_bitclout = recieve_number * price_per_coin
-            logger.info(f"购买成功, 花费了{spend_bitclout:.9f} bitclout, 等同于 ${usd:.7f} ")
+            logger.info(
+                f"购买成功, 花费了{spend_bitclout:.9f} bitclout, 等同于 ${usd:.7f} ")
             self.balance_bitclout -= spend_bitclout
             self.balance_usd -= usd
         except Exception as e:
             logger.error(f"buying error: {e}")
         finally:
-            self.driver.close()
-            self.switch_to_tab(0)
+            self.driver.get("https://bitclout.com/browse")
             self.is_busy = False
-            return
+            logger.info("go back to homepage, wait for new signal")
 
-    def sell(self, username:str, coin:str):
+    def sell(self, username: str, coin: str):
         logging.info(f"want to sell {coin} {username} coin")
 
-    def dm(self, username:str):
+    def dm(self, username: str):
         logging.info(f"want to dm {username}")
         dm_content = os.getenv('DM_CONTENT')
         if dm_content == "":
             logger.warning("No content to send")
         try:
             self.is_busy = True
-            self.driver.execute_script("window.open('');")
-            tab = self.driver.window_handles[-1]
-            self.driver.switch_to.window(tab)
             self.driver.get("https://bitclout.com/inbox")
             search_input = self.wait.until(
                 EC.visibility_of_element_located(
@@ -194,49 +199,43 @@ class Worker:
                 var elm = arguments[0], txt = arguments[1];
                 elm.value += txt;
                 elm.dispatchEvent(new Event('change'));
-            """ # only js can use emoji
+            """  # only js can use emoji
             self.driver.execute_script(
                 JS_ADD_TEXT_TO_INPUT, input_form, dm_content)
-            input_form.send_keys(" ") # input a space can send message
+            input_form.send_keys(" ")  # input a space can send message
             send_button = self.driver.find_element_by_xpath(
                 "//messages-thread-view[@class='messages-thread__desktop-column']//button[contains(text(),'Send')]")
-            send_button.click()  
+            send_button.click()
             logger.info(f"dm to {username} sent")
         except Exception as e:
             self.driver.save_screenshot('error_dm.png')
             logger.error(f'error when dm: {e}')
         finally:
-            self.driver.close()
-            self.switch_to_tab(0)
+            self.driver.get("https://bitclout.com/browse")
             self.is_busy = False
-            return
+            logger.info("go back to homepage, wait for new signal")
 
-    def follow(self, username:str):
+    def follow(self, username: str):
         logging.info(f"want to follow {username}")
-
         try:
             self.is_busy = True
-            self.driver.execute_script("window.open('');")
-            tab = self.driver.window_handles[-1]
-            self.driver.switch_to.window(tab)
-            #TODO 
             self.driver.get(f"https://bitclout.com/u/{username}")
+            # TODO unfollow exit logic
             follow_button = self.wait.until(
                 EC.visibility_of_element_located(
                     (By.XPATH, "//a[contains(text(),'Follow')]"))
             )
             follow_button.click()
-            time.sleep(5)
+            time.sleep(2)
             logger.info(f"follow to {username} success")
         except Exception as e:
             self.driver.save_screenshot('error_follow.png')
             logger.error(f'error when follow: {e}')
         finally:
-            self.driver.close()
-            self.switch_to_tab(0)
+            self.driver.get("https://bitclout.com/browse")
             self.is_busy = False
+            logger.info("go back to homepage, wait for new signal")
             return
-
 
     def open_new_tab(self):
         self.driver.execute_script("window.open('');")
