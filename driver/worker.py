@@ -8,6 +8,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import NoSuchElementException
 from selenium import webdriver
 import time
 import undetected_chromedriver as uc
@@ -43,7 +44,7 @@ class Worker:
         capa["pageLoadStrategy"] = "eager"
         self.driver = webdriver.Chrome(
             desired_capabilities=capa, chrome_options=chrome_options)
-        self.wait = WebDriverWait(self.driver, 10)
+        self.wait = WebDriverWait(self.driver, 60)
 
     def launch(self):
         logger.info(f"headless mode: {self.headless}")
@@ -88,7 +89,7 @@ class Worker:
             self.wallet = dict(zip([coin_name_element.text for coin_name_element in coin_name_elements], [
                                float(coin_count_element.text) for coin_count_element in coin_count_elements]))
             logger.info(f"get wallet success: {self.wallet}")
-            logger.info("login complete")
+            logger.info("login complete, wait signal")
         except Exception as e:
             logger.error(f"login in error: {e}")
             self.driver.save_screenshot('error_screenshot.png')
@@ -221,13 +222,23 @@ class Worker:
             self.is_busy = True
             self.driver.get(f"https://bitclout.com/u/{username}")
             # TODO unfollow exit logic
-            follow_button = self.wait.until(
+            self.wait.until(
                 EC.visibility_of_element_located(
-                    (By.XPATH, "//a[contains(text(),'Follow')]"))
+                    (By.XPATH, "//a[@class = 'btn btn-primary font-weight-bold ml-15px fs-14px']"))
             )
-            follow_button.click()
-            time.sleep(2)
-            logger.info(f"follow to {username} success")
+            logger.info("checking UnFollow")
+            try:
+                self.driver.find_element_by_xpath(
+                    "//a[contains(text(),'Unfollow')]")
+                logger.info(f'{username} is already followed')
+            except NoSuchElementException:
+                follow_button = self.wait.until(
+                    EC.visibility_of_element_located(
+                        (By.XPATH, "//a[contains(text(),'Follow')]"))
+                )
+                follow_button.click()
+                time.sleep(2)
+                logger.info(f"follow to {username} success")
         except Exception as e:
             self.driver.save_screenshot('error_follow.png')
             logger.error(f'error when follow: {e}')
