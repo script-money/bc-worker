@@ -163,6 +163,52 @@ class Worker:
 
     def follow_and_dm(self, username:str):
         logging.info(f"want to follow_and_dm {username}")
+        dm_content = os.getenv('DM_CONTENT')
+        if dm_content == "":
+            logger.warning("No content to send")
+        try:
+            self.is_busy = True
+            self.driver.execute_script("window.open('');")
+            tab = self.driver.window_handles[-1]
+            self.driver.switch_to.window(tab)
+            self.driver.get("https://bitclout.com/inbox")
+            # ---dm
+            search_input = self.wait.until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, "//input[@placeholder='Search']"))
+            )
+            search_input.click()
+            search_input.send_keys(username)
+            user_button = self.wait.until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, f"//div[contains(@class, 'search-bar__results-dropdown')]/div/div/div[2]/span[1][text()='{username}']"))
+            )
+            user_button.click()
+            input_form = self.driver.find_element_by_xpath(
+                "//textarea[contains(@class,'ng-valid')]")
+            input_form.click()
+            # input text
+            JS_ADD_TEXT_TO_INPUT = """
+                var elm = arguments[0], txt = arguments[1];
+                elm.value += txt;
+                elm.dispatchEvent(new Event('change'));
+            """ # only js can use emoji
+            self.driver.execute_script(
+                JS_ADD_TEXT_TO_INPUT, input_form, dm_content)
+            input_form.send_keys(" ") # input a space can send message
+            send_button = self.driver.find_element_by_xpath(
+                "//messages-thread-view[@class='messages-thread__desktop-column']//button[contains(text(),'Send')]")
+            send_button.click()  
+            logger.info(f"message to {username} sent")
+            # ---follow
+            # 
+        except Exception as e:
+            logger.error(f'error when follow_and_dm: {e}')
+        finally:
+            self.driver.close()
+            self.switch_to_tab(0)
+            self.is_busy = False
+            return
 
     def open_new_tab(self):
         self.driver.execute_script("window.open('');")
