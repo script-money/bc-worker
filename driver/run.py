@@ -35,7 +35,7 @@ def main():
     try:
         load_dotenv('.env')
         max_thread = 1 # 开几个selenium
-        queue_size = 2
+        queue_size = 100
         logger.info(
             f'selenium worker number is {max_thread}, task queue size is {queue_size}')
         queue_instance = queue.Queue(queue_size)

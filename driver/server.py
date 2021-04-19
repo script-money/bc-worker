@@ -27,10 +27,36 @@ def send_signal():
             return jsonify({"code": 404, "msg": e})
         return jsonify({"code": 200, "msg": "buy success"})
     elif request_type == 'follow_and_dm':
-        msg = f"7 {data['username']}"
+        '''
+        Method: POST
+        Body:
+        {
+            "type":"follow_and_dm",
+            "username":"scriptmoney/ChineseDAO",
+            "message":"test follow_and_dm"
+        }
+        '''
+        msg = f"7 {data['username']} {data['message']}"
         print(f"recieve message: {msg}")
         try:
             socket.send_string(msg)
         except Exception as e:
             return jsonify({"code": 404, "msg": e})
         return jsonify({"code": 200, "msg": "follow_and_dm success"})
+    elif request_type == 'dm':
+        '''
+        Method: POST
+        Body:
+        {
+            "type":"dm",
+            "usernames":"scriptmoney/ChineseDAO",
+            "message":"test dm"
+        }
+        '''
+        msg = f"4 {data['usernames']} {data['message']}"
+        print(f"recieve message: {msg}")
+        try:
+            socket.send_string(msg)
+        except Exception as e:
+            return jsonify({"code": 404, "msg": e})
+        return jsonify({"code": 200, "msg": "dm success"})

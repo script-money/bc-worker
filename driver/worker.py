@@ -10,6 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 from selenium import webdriver
+from exceptions import DMEmptyException
 import time
 import undetected_chromedriver as uc
 uc.install()
@@ -27,7 +28,7 @@ class Worker:
     def __init__(self, name: str, private_key: str) -> None:
         self.is_busy = False
         self.name = name
-        self.headless = True
+        self.headless = False
         self.private_key = private_key
         self.wallet: dict = {}
         self.balance_bitclout = 0
@@ -113,10 +114,14 @@ class Worker:
         elif signal == 3:
             self.follow(*args)
         elif signal == 4:
-            self.dm(*args)
+            usernames, message = args[0], args[1:]
+            for username in usernames.split('/'):
+                self.dm(username, ' '.join(message))
         elif signal == 7:
-            self.follow(*args)
-            self.dm(*args)
+            usernames, message = args[0], args[1:]
+            for username in usernames.split('/'):
+                self.follow(username)
+                self.dm(username, ' '.join(message))
         else:
             logger.warning(f'无法解析信号:{signal}')
 
@@ -173,12 +178,12 @@ class Worker:
     def sell(self, username: str, coin: str):
         logging.info(f"want to sell {coin} {username} coin")
 
-    def dm(self, username: str):
-        logging.info(f"want to dm {username}")
-        dm_content = os.getenv('DM_CONTENT')
-        if dm_content == "":
-            logger.warning("No content to send")
+    def dm(self, username: str, dm_content:str=''):
+        logging.info(f"want to dm {dm_content} to {username}")
         try:
+            if dm_content == "":
+                logger.warning("No content to send")
+                raise DMEmptyException
             self.is_busy = True
             self.driver.get("https://bitclout.com/inbox")
             search_input = self.wait.until(
@@ -207,7 +212,8 @@ class Worker:
             send_button = self.driver.find_element_by_xpath(
                 "//messages-thread-view[@class='messages-thread__desktop-column']//button[contains(text(),'Send')]")
             send_button.click()
-            logger.info(f"dm to {username} sent")
+            time.sleep(3) # wait loading done
+            logger.info(f"dm {dm_content} to {username} sent")
         except Exception as e:
             self.driver.save_screenshot('error_dm.png')
             logger.error(f'error when dm: {e}')
@@ -221,7 +227,6 @@ class Worker:
         try:
             self.is_busy = True
             self.driver.get(f"https://bitclout.com/u/{username}")
-            # TODO unfollow exit logic
             self.wait.until(
                 EC.visibility_of_element_located(
                     (By.XPATH, "//a[@class = 'btn btn-primary font-weight-bold ml-15px fs-14px']"))
