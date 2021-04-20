@@ -12,7 +12,7 @@ def main():
     socket.connect('tcp://localhost:5557')
 
     try:
-        usernames = 'ChineseDAO scriptmoney'
+        usernames = 'ChineseDAO/scriptmoney'
         signal = f'4 {usernames} test3'
         logger.info(f"send: {signal}")
         socket.send_string(signal)

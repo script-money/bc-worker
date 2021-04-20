@@ -45,7 +45,7 @@ class Worker:
         capa["pageLoadStrategy"] = "eager"
         self.driver = webdriver.Chrome(
             desired_capabilities=capa, chrome_options=chrome_options)
-        self.wait = WebDriverWait(self.driver, 60)
+        self.wait = WebDriverWait(self.driver, 6000)
 
     def launch(self):
         logger.info(f"headless mode: {self.headless}")
@@ -58,7 +58,8 @@ class Worker:
                     (By.XPATH, "//div[@class='slide-up-2']//a[@class='landing__log-in d-none d-md-block'][contains(text(),'Log in')]"))
             )
             login_in.click()
-
+            time.sleep(2)
+            self.switch_to_tab(1)
             input_box = self.wait.until(
                 EC.visibility_of_element_located(
                     (By.XPATH, "//textarea[@placeholder='Enter your secret phrase here.']"))
@@ -69,6 +70,7 @@ class Worker:
             self.driver.find_element_by_xpath(
                 "//button[contains(text(),'Load Account')]").click()
 
+            self.switch_to_tab(0)
             # read wallet
             wallet_button = self.wait.until(
                 EC.element_to_be_clickable(
@@ -258,6 +260,6 @@ class Worker:
         tab = self.driver.window_handles[-1]
         self.driver.switch_to.window(tab)
 
-    def switch_to_tab(self, index):
+    def switch_to_tab(self, index:int):
         tab = self.driver.window_handles[index]
         self.driver.switch_to.window(tab)
