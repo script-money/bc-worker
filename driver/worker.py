@@ -45,7 +45,7 @@ class Worker:
         capa["pageLoadStrategy"] = "eager"
         self.driver = webdriver.Chrome(
             desired_capabilities=capa, chrome_options=chrome_options)
-        self.wait = WebDriverWait(self.driver, 6000)
+        self.wait = WebDriverWait(self.driver, 60)
 
     def launch(self):
         logger.info(f"headless mode: {self.headless}")
@@ -95,7 +95,7 @@ class Worker:
             logger.info("login complete, wait signal")
         except Exception as e:
             logger.error(f"login in error: {e}")
-            self.driver.save_screenshot('error_screenshot.png')
+            self.driver.save_screenshot('error_launch.png')
             self.driver.close()
         finally:
             self.is_busy = False
