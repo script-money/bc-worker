@@ -28,6 +28,7 @@ class Worker:
     def __init__(self, name: str, private_key: str) -> None:
         self.is_busy = False
         self.name = name
+        self.username = ""
         self.headless = True
         self.private_key = private_key
         self.public_key = ""
@@ -82,8 +83,8 @@ class Worker:
                     (By.XPATH, "//div[@class = 'col-9 d-flex align-items-center holdings__pub-key mb-0']"))
             )
             self.public_key = public_key.text
-            # self.public_key = self.driver.find_element_by_xpath(
-            #     "//div[@class = 'col-9 d-flex align-items-center holdings__pub-key mb-0']")
+            # self.username = self.driver.find_element_by_xpath(
+            #     "//div[@class='change-account-selector__ellipsis-restriction cursor-pointer ng-star-inserted']").text
             self.balance_bitclout = float(self.driver.find_element_by_xpath(
                 "//div[@class='col-9']/div[1]").text)
             balance_usd = self.driver.find_element_by_xpath(
@@ -112,6 +113,7 @@ class Worker:
             SELL = 1
             FOLLOW = 3
             DM = 4
+            DM_TO_INVESTORS = 5
             FOLLOW+DM = 7
         '''
         signal = int(signal_index)
@@ -125,6 +127,15 @@ class Worker:
             usernames, message = args[0], args[1:]
             for username in usernames.split('/'):
                 self.dm(username, ' '.join(message))
+        elif signal == 5:
+            creator, message = args[0], args[1:]
+            invests_info = self.get_investors(creator)
+            try:
+                del invests_info[self.username]
+            except:
+                logger.info("creator is not buy his own coin")
+            for investor in invests_info.keys():
+                self.dm(investor, ' '.join(message))
         elif signal == 7:
             usernames, message = args[0], args[1:]
             for username in usernames.split('/'):
@@ -185,6 +196,32 @@ class Worker:
 
     def sell(self, username: str, coin: str):
         logging.info(f"want to sell {coin} {username} coin")
+
+    def get_investors(self, username: str) -> dict[str,float]:
+        logging.info(f"want to get investors info of {username}")
+        investors_info = {}
+        try:
+            self.is_busy = True
+            self.driver.get(f"https://bitclout.com/u/{username}?tab=creator-coin")
+            create_coin_button = self.wait.until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, "//div[@class = 'd-flex h-100 align-items-center fs-15px fc-default']"))
+            )
+            create_coin_button.click()
+            coin_name_elements = self.driver.find_elements_by_xpath(
+                "//a[@class='d-flex align-items-center link--unstyled']")
+            coin_count_and_value_elements = self.driver.find_elements_by_xpath(
+                "//div[@class='col-3 d-flex align-items-center mb-0']")
+            coin_count_elements = coin_count_and_value_elements[::2]
+            investors_info = dict(zip([coin_name_element.text for coin_name_element in coin_name_elements], [
+                               float(coin_count_element.text) for coin_count_element in coin_count_elements]))
+        except Exception as e:
+            logger.error(f"get {username}'s investors error: {e}")
+        finally:
+            self.driver.get("https://bitclout.com/browse")
+            self.is_busy = False
+            logger.info("go back to homepage, wait for new signal")
+            return investors_info
 
     def dm(self, username: str, dm_content:str=''):
         logging.info(f"want to dm {dm_content} to {username}")
