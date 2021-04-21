@@ -28,8 +28,9 @@ class Worker:
     def __init__(self, name: str, private_key: str) -> None:
         self.is_busy = False
         self.name = name
-        self.headless = False
+        self.headless = True
         self.private_key = private_key
+        self.public_key = ""
         self.wallet: dict = {}
         self.balance_bitclout = 0
         self.balance_usd = 0
@@ -52,13 +53,12 @@ class Worker:
         self.is_busy = True
         try:
             self.driver.get(
-                "https://bitclout.com/?password=825bbae8589b65720731d867f436471e18683c6a3192a20140105ee1733bb7cc")
+                "https://bitclout.com/")
             login_in = self.wait.until(
                 EC.visibility_of_element_located(
                     (By.XPATH, "//div[@class='slide-up-2']//a[@class='landing__log-in d-none d-md-block'][contains(text(),'Log in')]"))
             )
             login_in.click()
-            time.sleep(2)
             self.switch_to_tab(1)
             input_box = self.wait.until(
                 EC.visibility_of_element_located(
@@ -69,15 +69,21 @@ class Worker:
                 input_box.send_keys(ch)
             self.driver.find_element_by_xpath(
                 "//button[contains(text(),'Load Account')]").click()
-
             self.switch_to_tab(0)
+            # time.sleep(0.5)
             # read wallet
             wallet_button = self.wait.until(
                 EC.element_to_be_clickable(
                     (By.XPATH, "//a[contains(text(),'Wallet')]"))
             )
             wallet_button.click()
-            time.sleep(2)
+            public_key = self.wait.until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, "//div[@class = 'col-9 d-flex align-items-center holdings__pub-key mb-0']"))
+            )
+            self.public_key = public_key.text
+            # self.public_key = self.driver.find_element_by_xpath(
+            #     "//div[@class = 'col-9 d-flex align-items-center holdings__pub-key mb-0']")
             self.balance_bitclout = float(self.driver.find_element_by_xpath(
                 "//div[@class='col-9']/div[1]").text)
             balance_usd = self.driver.find_element_by_xpath(
