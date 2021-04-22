@@ -13,7 +13,8 @@ def main():
 
     try:
         creator = 'Justin_Sun'
-        signal = f'5 {creator} test send_dm_investors'
+        message = "Greetings investor! @myReclout will open for public coin purchasing in 10 hours. If you want in before the public, please make your purchase during the 5 minutes window opened just for you today April 21st at US Eastern time 12pm, 1pm, 3pm, 5pm and 7pm. @myReclout connects creators & users and rewards you for your engagement."
+        signal = f'5 {creator} {message}'
         logger.info(f"send: {signal}")
         socket.send_string(signal)
     except Exception as e:

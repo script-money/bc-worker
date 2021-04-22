@@ -16,7 +16,6 @@ def change_proxy(proxy_name:str):
     return res.status_code
 
 def main(file):
-    return_code = 1
     try:
         now_proxy = rq.get("http://127.0.0.1:9090/proxies/🔰国外流量").json()['now']
         proxies = []
@@ -29,7 +28,7 @@ def main(file):
             lines = f.readlines()
             proxies_index = proxies.index(now_proxy)
             for index, line in enumerate(lines):
-                if index % 15 == 14:
+                if index % 2 == 1:
                     try:
                         logger.info('changing IP...')
                         proxies_index += 1
@@ -50,18 +49,17 @@ def main(file):
                         worker.driver.close()
                         result = True
                     except:
-                        logger.warn(f"error when process {bip39}, change ip and retry")
-                        proxies_index += 1
-                        change_proxy(proxies[proxies_index])   
-    except KeyboardInterrupt:
-        logger.info('SIGINT received, aborting ...')
-        return_code = 0
-    except SystemExit as e:
-        return_code = e
+                        logger.warning(
+                            f"error when process {bip39}, change ip and retry")
+                        try:
+                            proxies_index += 1
+                            change_proxy(proxies[proxies_index])
+                        except IndexError:
+                            logger.error("not proxy use")
+                            proxies_index = 0
+                            change_proxy(proxies[proxies_index])
     except Exception as exp:
         logger.exception(f"Fatal exception:{exp}")
-    finally:
-        sys.exit(return_code)
 
 if __name__ == "__main__":
     load_dotenv('.env')
