@@ -11,32 +11,40 @@ import re
 
 logger = logging.getLogger('get_pk')
 
-def change_proxy(proxy_name:str):
-    res = rq.put("http://127.0.0.1:9090/proxies/🔰国外流量",json={"name": proxy_name})
-    return res.status_code
-
-def main(file):
+def change_proxy_loop(proxies_index: int, proxies:list):
     try:
-        now_proxy = rq.get("http://127.0.0.1:9090/proxies/🔰国外流量").json()['now']
-        proxies = []
-        response = rq.get("http://127.0.0.1:9090/proxies/").json()['proxies']
-        for key in response.keys():
-            if re.search(r"(IPLC|Trojan)", key):
-                proxies.append(key)
+        logger.info('changing IP...')
+        proxies_index += 1
+        rq.put("http://127.0.0.1:9090/proxies/🔰国外流量",
+               json={"name": proxies[proxies_index]})
+    except IndexError:
+        logger.error("not proxy use")
+        proxies_index = 0
+        rq.put("http://127.0.0.1:9090/proxies/🔰国外流量",
+               json={"name": proxies[proxies_index]})
+        
+def main(file, use_proxy=True, change_proxy=False):
+    try:
+        if use_proxy:
+            now_proxy = rq.get("http://127.0.0.1:9090/proxies/🔰国外流量").json()['now']
+            proxies = []
+            response = rq.get("http://127.0.0.1:9090/proxies/").json()['proxies']
+            for key in response.keys():
+                if re.search(r"(IPLC|Trojan)", key):
+                    proxies.append(key)
 
         with open(file, 'r') as f:
             lines = f.readlines()
-            proxies_index = proxies.index(now_proxy)
+            wait_seconds = 60
+            if use_proxy:
+                proxies_index = proxies.index(now_proxy)
             for index, line in enumerate(lines):
-                if index % 2 == 1:
-                    try:
-                        logger.info('changing IP...')
-                        proxies_index += 1
-                        change_proxy(proxies[proxies_index])        
-                    except IndexError:
-                        logger.error("not proxy use")
-                        proxies_index = 0
-                        change_proxy(proxies[proxies_index])
+                if index % 20 == 19:
+                    if change_proxy:
+                        change_proxy_loop(proxies_index, proxies)
+                    else:
+                        logger.info(f"wait {wait_seconds} seconds forbid CF ban")
+                        time.sleep(wait_seconds)
                 bip39 = line.strip()
                 result = None
                 while not result:
@@ -49,19 +57,15 @@ def main(file):
                         worker.driver.close()
                         result = True
                     except:
-                        logger.warning(
-                            f"error when process {bip39}, change ip and retry")
-                        try:
-                            proxies_index += 1
-                            change_proxy(proxies[proxies_index])
-                        except IndexError:
-                            logger.error("not proxy use")
-                            proxies_index = 0
-                            change_proxy(proxies[proxies_index])
+                        if change_proxy:
+                            change_proxy_loop(proxies_index, proxies)
+                        else:
+                            logger.info(f"wait {wait_seconds} seconds then retry")
+                            time.sleep(wait_seconds)
     except Exception as exp:
         logger.exception(f"Fatal exception:{exp}")
 
 if __name__ == "__main__":
     load_dotenv('.env')
     setup_logging_pre()
-    main(file='pk/part.txt')
+    main(file='pk/part.txt', use_proxy=True, change_proxy=False)

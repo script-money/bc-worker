@@ -70,8 +70,14 @@ class Worker:
                 input_box.send_keys(ch)
             self.driver.find_element_by_xpath(
                 "//button[contains(text(),'Load Account')]").click()
+            select_account = self.wait.until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, "//li[1]"))
+            ) 
+            select_account.click()
+            self.driver.find_element_by_xpath(
+                "//button[contains(text(), 'Log in to bitclout.com')]").click()     
             self.switch_to_tab(0)
-            # time.sleep(0.5)
             # read wallet
             wallet_button = self.wait.until(
                 EC.element_to_be_clickable(
@@ -89,7 +95,7 @@ class Worker:
                 "//div[@class='col-9']/div[1]").text)
             balance_usd = self.driver.find_element_by_xpath(
                 "//div[@class='col-9']/div[2]").text
-            self.balance_usd = float(balance_usd[3:-4])
+            self.balance_usd = float(balance_usd[3:-4].replace(',','')) 
             logger.info(
                 f"balance_bitclout: {self.balance_bitclout}, balance_usd: {self.balance_usd}")
             coin_name_elements = self.driver.find_elements_by_xpath(
