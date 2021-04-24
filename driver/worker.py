@@ -133,6 +133,9 @@ class Worker:
             usernames, message = args[0], args[1:]
             for username in usernames.split('/'):
                 self.dm(username, ' '.join(message))
+                wait_s = 10
+                time.sleep(wait_s)
+                logger.info(f'wait {wait_s} seconds forbid CF ban')
         elif signal == 5:
             creator, message = args[0], args[1:]
             invests_info = self.get_investors(creator)
@@ -147,6 +150,9 @@ class Worker:
             for username in usernames.split('/'):
                 self.follow(username)
                 self.dm(username, ' '.join(message))
+                wait_s = 10
+                time.sleep(wait_s)
+                logger.info(f'wait {wait_s} seconds forbid CF ban')
         else:
             logger.warning(f'无法解析信号:{signal}')
 
