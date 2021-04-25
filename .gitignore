@@ -157,3 +157,4 @@ chromedriver
 *.csv
 Twitter-API-v2-sample-code/
 pk/
+data/
