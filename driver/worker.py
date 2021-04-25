@@ -29,7 +29,7 @@ class Worker:
         self.is_busy = False
         self.name = name
         self.username = ""
-        self.headless = True
+        self.headless = False
         self.private_key = private_key
         self.public_key = ""
         self.wallet: dict = {}
@@ -73,10 +73,10 @@ class Worker:
             select_account = self.wait.until(
                 EC.visibility_of_element_located(
                     (By.XPATH, "//li[1]"))
-            ) 
+            )
             select_account.click()
             self.driver.find_element_by_xpath(
-                "//button[contains(text(), 'Log in to bitclout.com')]").click()     
+                "//button[contains(text(), 'Log in to bitclout.com')]").click()
             self.switch_to_tab(0)
             # read wallet
             wallet_button = self.wait.until(
@@ -95,7 +95,7 @@ class Worker:
                 "//div[@class='col-9']/div[1]").text)
             balance_usd = self.driver.find_element_by_xpath(
                 "//div[@class='col-9']/div[2]").text
-            self.balance_usd = float(balance_usd[3:-4].replace(',','')) 
+            self.balance_usd = float(balance_usd[3:-4].replace(',', ''))
             logger.info(
                 f"balance_bitclout: {self.balance_bitclout}, balance_usd: {self.balance_usd}")
             coin_name_elements = self.driver.find_elements_by_xpath(
@@ -161,10 +161,14 @@ class Worker:
         if usd > self.balance_usd:
             logging.error("超出最大可购买本金")
         logging.info(f"want to buy {username} in {usd} usd")
-        buy_page_url = f"https://bitclout.com/u/{username}/buy"
         try:
             self.is_busy = True
-            self.driver.get(buy_page_url)
+            self.enter_user_page(username)
+            buy_button = self.wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, "//a[@class='btn btn-primary font-weight-bold ml-15px fs-14px']"))
+            )
+            buy_button.click()
             unit_input = self.wait.until(
                 EC.element_to_be_clickable(
                     (By.XPATH, "//input[@name='amount']"))
@@ -209,12 +213,12 @@ class Worker:
     def sell(self, username: str, coin: str):
         logging.info(f"want to sell {coin} {username} coin")
 
-    def get_investors(self, username: str) -> dict[str,float]:
+    def get_investors(self, username: str) -> dict[str, float]:
         logging.info(f"want to get investors info of {username}")
         investors_info = {}
         try:
             self.is_busy = True
-            self.driver.get(f"https://bitclout.com/u/{username}?tab=creator-coin")
+            self.enter_user_page(username)
             create_coin_button = self.wait.until(
                 EC.visibility_of_element_located(
                     (By.XPATH, "//div[@class = 'd-flex h-100 align-items-center fs-15px fc-default']"))
@@ -225,8 +229,12 @@ class Worker:
             coin_count_and_value_elements = self.driver.find_elements_by_xpath(
                 "//div[@class='col-3 d-flex align-items-center mb-0']")
             coin_count_elements = coin_count_and_value_elements[::2]
-            investors_info = dict(zip([coin_name_element.text for coin_name_element in coin_name_elements], [
-                               float(coin_count_element.text) for coin_count_element in coin_count_elements]))
+            investors_info = dict(zip(
+                [coin_name_element.text[:15]
+                    for coin_name_element in coin_name_elements],
+                [float(coin_count_element.text)
+                 for coin_count_element in coin_count_elements]
+            ))
         except Exception as e:
             logger.error(f"get {username}'s investors error: {e}")
         finally:
@@ -235,7 +243,7 @@ class Worker:
             logger.info("go back to homepage, wait for new signal")
             return investors_info
 
-    def dm(self, username: str, dm_content:str=''):
+    def dm(self, username: str, dm_content: str = ''):
         logging.info(f"want to dm {dm_content} to {username}")
         try:
             if dm_content == "":
@@ -251,7 +259,7 @@ class Worker:
             search_input.send_keys(username)
             user_button = self.wait.until(
                 EC.visibility_of_element_located(
-                    (By.XPATH, f"//div[contains(@class, 'search-bar__results-dropdown')]/div/div/div[2]/span[1][text()='{username}']"))
+                    (By.XPATH, f"//div[contains(@class, 'search-bar__results-dropdown')]/div/div/div[2]/span[1][contains(text(),'{username}')]"))
             )
             user_button.click()
             input_form = self.driver.find_element_by_xpath(
@@ -268,8 +276,8 @@ class Worker:
             input_form.send_keys(" ")  # input a space can send message
             send_button = self.driver.find_element_by_xpath(
                 "//messages-thread-view[@class='messages-thread__desktop-column']//button[contains(text(),'Send')]")
-            send_button.click()
-            time.sleep(3) # wait loading done
+            send_button.click() # comment for test
+            time.sleep(3)  # wait loading done
             logger.info(f"dm {dm_content} to {username} sent")
         except Exception as e:
             self.driver.save_screenshot('error_dm.png')
@@ -283,7 +291,7 @@ class Worker:
         logging.info(f"want to follow {username}")
         try:
             self.is_busy = True
-            self.driver.get(f"https://bitclout.com/u/{username}")
+            self.enter_user_page(username)
             self.wait.until(
                 EC.visibility_of_element_located(
                     (By.XPATH, "//a[@class = 'btn btn-primary font-weight-bold ml-15px fs-14px']"))
@@ -310,11 +318,28 @@ class Worker:
             logger.info("go back to homepage, wait for new signal")
             return
 
+    def enter_user_page(self, username: str):
+        if not "https://bitclout.com/browse" in self.driver.current_url and not "https://bitclout.com/wallet" in self.driver.current_url:
+            logger.warning("current page is not home/wallet page")
+            return
+        search_input = self.wait.until(
+            EC.visibility_of_element_located(
+                (By.XPATH, "//input[@placeholder='Search']"))
+        )
+        search_input.click()
+        search_input.send_keys(username)
+        user_page_enter_button = self.wait.until(
+            EC.visibility_of_element_located(
+                (By.XPATH, f"//div[contains(@class, 'search-bar__results-dropdown')]//span[1][contains(text(),'{username}')]"))
+        )
+        user_page_enter_button.click()
+        time.sleep(1)
+
     def open_new_tab(self):
         self.driver.execute_script("window.open('');")
         tab = self.driver.window_handles[-1]
         self.driver.switch_to.window(tab)
 
-    def switch_to_tab(self, index:int):
+    def switch_to_tab(self, index: int):
         tab = self.driver.window_handles[index]
         self.driver.switch_to.window(tab)

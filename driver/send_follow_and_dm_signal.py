@@ -11,8 +11,9 @@ def main():
     socket.connect('tcp://localhost:5557')
 
     try:
-        username = 'scriptmoney'
-        signal = '7'+' '+username
+        username = 'ShabbyPhilosoph'
+        content = 'Hello world'
+        signal = '7'+' '+username+' '+content
         logger.info(f"send: {signal}")
         socket.send_string(signal)
     except Exception as e:
