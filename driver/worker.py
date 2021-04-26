@@ -221,9 +221,13 @@ class Worker:
             self.enter_user_page(username)
             create_coin_button = self.wait.until(
                 EC.visibility_of_element_located(
-                    (By.XPATH, "//div[@class = 'd-flex h-100 align-items-center fs-15px fc-default']"))
+                    (By.XPATH, "//div[contains(text(),'Creator Coin')]"))
             )
             create_coin_button.click()
+            self.wait.until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, "//creator-profile-hodlers[1]/div[1]/div[2]/div[1]/div[1]/div[1]/a[1]"))
+            )          
             coin_name_elements = self.driver.find_elements_by_xpath(
                 "//a[@class='d-flex align-items-center link--unstyled']")
             coin_count_and_value_elements = self.driver.find_elements_by_xpath(
@@ -235,6 +239,7 @@ class Worker:
                 [float(coin_count_element.text)
                  for coin_count_element in coin_count_elements]
             ))
+            logger.info(investors_info)
         except Exception as e:
             logger.error(f"get {username}'s investors error: {e}")
         finally:
