@@ -17,3 +17,10 @@
 
 1. 输入`python driver/run.py`运行worker，会打开chrome自动登录账户并读取余额，并监听信号。
 2. 新开一个窗口，输入`export FLASK_APP=driver/server.py`，然后输入`flask run --host=0.0.0.0`启动web服务
+
+## 使用
+
+### 获取reclout名单
+
+reclout名单是从notification中获取。`driver/get_notifications.py`的`if __name__ == "__main__":`里，修改`generate_reclout_csv`的第一个参数为要查询的PublicKey，默认是myreclout的。第二个参数填写要查询的原帖hash，从浏览器中帖子的URL获取。第三个参数是每次查询的消息数，一般设置为250-500的随意数字。end_index参数是查询停止的index，每条消息都有一个index，-1为最新的消息，一般不用查询到0。
+改完参数后，用`python driver/get_notifications.py`运行，会生成结果在csv文件夹下。
