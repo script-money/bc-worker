@@ -24,3 +24,16 @@
 
 reclout名单是从notification中获取。`driver/get_notifications.py`的`if __name__ == "__main__":`里，修改`generate_reclout_csv`的第一个参数为要查询的PublicKey，默认是myreclout的。第二个参数填写要查询的原帖hash，从浏览器中帖子的URL获取。第三个参数是每次查询的消息数，一般设置为250-500的随意数字。end_index参数是查询停止的index，每条消息都有一个index，-1为最新的消息，一般不用查询到0。
 改完参数后，用`python driver/get_notifications.py`运行，会生成结果在csv文件夹下。
+
+### 群控
+
+把要运行的助记词放入pk文件夹的某个文件夹中，修改`driver/get_pk.py`的最后一行参数。file指向要读取的助记词文件，由于单IP反复请求会激活CF，所以需要使用代理并切换。
+运行`python driver/get_pk.py`，会读取私钥登录并读取余额。其他功能也可以按需求添加。
+
+### 发送message给特定多个账户
+
+在`python driver/run.py`运行的情况下，运行`python driver/send_dm_multiple_signal.py`，需修改15-16行的参数。多个账户用`/`分隔。
+
+### 发送message给投资者们
+
+在`python driver/run.py`运行的情况下，运行`python driver/send_dm_investors_signal.py`，需修改15-16行的参数。

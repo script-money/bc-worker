@@ -13,7 +13,8 @@ def main():
 
     try:
         usernames = 'ChineseDAO/scriptmoney'
-        signal = f'4 {usernames} test3'
+        message = "test3"
+        signal = f'4 {usernames} {message}'
         logger.info(f"send: {signal}")
         socket.send_string(signal)
     except Exception as e:

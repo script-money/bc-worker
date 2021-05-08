@@ -68,4 +68,4 @@ def main(file, use_proxy=True, change_proxy=False):
 if __name__ == "__main__":
     load_dotenv('.env')
     setup_logging_pre()
-    main(file='pk/part.txt', use_proxy=True, change_proxy=False)
+    main(file='pk/test_3_accounts.txt', use_proxy=False, change_proxy=False)
