@@ -4,7 +4,7 @@ from logging import Formatter
 from logging.handlers import BufferingHandler
 
 logger = logging.getLogger(__name__)
-LOGFORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOGFORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 # Initialize bufferhandler - will be used for /log endpoints
 bufferHandler = BufferingHandler(1000)
@@ -22,5 +22,5 @@ def setup_logging_pre() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format=LOGFORMAT,
-        handlers=[logging.StreamHandler(sys.stderr), bufferHandler]
+        handlers=[logging.StreamHandler(sys.stderr), bufferHandler],
     )
