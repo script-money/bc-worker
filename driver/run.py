@@ -21,7 +21,7 @@ def check_account():
 
 
 def worker(_thread_index, _private_key, _queue):
-    sub_worker = Worker(_thread_index, _private_key)
+    sub_worker = Worker(_thread_index, _private_key, use_proxy=True)
     sub_worker.launch()
     while True:
         if not sub_worker.is_busy and not _queue.empty():

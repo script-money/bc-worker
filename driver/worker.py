@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 import logging
-from enum import Enum
+from enum import IntEnum
 import re
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -20,9 +20,26 @@ uc.install()
 logger = logging.getLogger(__name__)
 
 
+class Operation(IntEnum):
+    BUY = 0
+    SELL = 1
+    SEND_CLOUT = 2
+    FOLLOW = 3
+    DM = 4
+    DM_TO_INVESTORS = 5
+    FOLLOW_AND_DM = 7
+
+
+GAS = 0.0000002
+
+
 class Worker:
     def __init__(
-        self, name: str, private_key: str, node: str = "https://bitclout.com"
+        self,
+        name: str,
+        private_key: str,
+        use_proxy: bool = False,
+        node: str = "https://bitclout.com",
     ) -> None:
         self.is_busy = False
         self.name = name
@@ -32,13 +49,14 @@ class Worker:
         self.public_key = ""
         self.wallet: dict = {}
         self.balance_bitclout = 0
-        self.balance_usd = 0
         self.node = node
+        self.usd_per_coin = 0
         capa = DesiredCapabilities.CHROME
         chrome_options = Options()
-        proxy_server = os.getenv("PROXY_URL")
-        if proxy_server != "" and proxy_server != None:
-            chrome_options.add_argument(f"--proxy-server={proxy_server}")
+        if use_proxy:
+            proxy_server = os.getenv("PROXY_URL")
+            if proxy_server != "" and proxy_server != None:
+                chrome_options.add_argument(f"--proxy-server={proxy_server}")
         if self.headless:
             chrome_options.add_argument("--headless")
             chrome_options.add_argument("--disable-gpu")
@@ -99,6 +117,14 @@ class Worker:
             wallet_button = self.wait.until(
                 EC.element_to_be_clickable((By.XPATH, "//a[contains(text(),'Wallet')]"))
             )
+            # read clout price self.usd_per_coin
+            usd_per_coin_str = self.driver.find_element_by_xpath(
+                "//div[@class='d-flex justify-content-between']/div[2]/span[1]"
+            ).text
+            price_per_coin = float(usd_per_coin_str[2:])
+            logger.info(f"current $CLOUT price is {price_per_coin}")
+            self.usd_per_coin = price_per_coin
+
             wallet_button.click()
             public_key = self.wait.until(
                 EC.visibility_of_element_located(
@@ -116,13 +142,7 @@ class Worker:
                     "//div[@class='col-9']/div[1]"
                 ).text.split(" ")[0]
             )
-            balance_usd = self.driver.find_element_by_xpath(
-                "//div[@class='col-9']/div[2]"
-            ).text
-            self.balance_usd = float(balance_usd[3:-4].replace(",", ""))
-            logger.info(
-                f"balance_bitclout: {self.balance_bitclout}, balance_usd: {self.balance_usd}"
-            )
+            logger.info(f"balance_bitclout: {self.balance_bitclout}")
             coin_name_elements = self.driver.find_elements_by_xpath(
                 "//div[@class='text-truncate holdings__name']/span[not(contains(@class,'ml-1'))]"
             )
@@ -142,7 +162,7 @@ class Worker:
                 )
             )
             logger.info(f"get wallet success: {self.wallet}")
-            logger.info("login complete, wait signal")
+            logger.info(f"login {self.public_key} complete, wait signal")
         except Exception as e:
             logger.error(f"login in error: {e}")
             self.driver.save_screenshot("error_launch.png")
@@ -159,25 +179,25 @@ class Worker:
         FOLLOW = 3
         DM = 4
         DM_TO_INVESTORS = 5
-        FOLLOW+DM = 7
+        FOLLOW_AND_DM = 7
         """
         signal = int(signal_index)
-        if signal == 0:
+        if signal == Operation.BUY:
             self.buy(*args)
-        elif signal == 1:
+        elif signal == Operation.SELL:
             self.sell(*args)
-        elif signal == 2:
+        elif signal == Operation.SEND_CLOUT:
             self.send_clout(*args)
-        elif signal == 3:
+        elif signal == Operation.FOLLOW:
             self.follow(*args)
-        elif signal == 4:
+        elif signal == Operation.DM:
             usernames, message = args[0], args[1:]
             for username in usernames.split("/"):
                 self.dm(username, " ".join(message))
                 wait_s = 10
                 time.sleep(wait_s)
                 logger.info(f"wait {wait_s} seconds forbid CF ban")
-        elif signal == 5:
+        elif signal == Operation.DM_TO_INVESTORS:
             creator, message = args[0], args[1:]
             invests_info = self.get_investors(creator)
             try:
@@ -186,7 +206,7 @@ class Worker:
                 logger.info("creator is not buy his own coin")
             for investor in invests_info.keys():
                 self.dm(investor, " ".join(message))
-        elif signal == 7:
+        elif signal == Operation.FOLLOW_AND_DM:
             usernames, message = args[0], args[1:]
             for username in usernames.split("/"):
                 self.follow(username)
@@ -197,11 +217,12 @@ class Worker:
         else:
             logger.warning(f"无法解析信号:{signal}")
 
-    def buy(self, username: str, usd_str: str):
-        usd = float(usd_str)
-        if usd > self.balance_usd:
-            logging.error("超出最大可购买本金")
-        logging.info(f"want to buy {username} in {usd} usd")
+    def buy(self, username: str, clout_str: str):
+        clout = float(clout_str)
+        if clout > self.balance_bitclout + GAS:
+            logger.error("超出最大可购买本金")
+            return
+        logger.info(f"want to buy {username} in {clout} $CLOUT")
         try:
             self.is_busy = True
             self.enter_user_page(username)
@@ -214,11 +235,15 @@ class Worker:
                 )
             )
             buy_button.click()
+
             unit_input = self.wait.until(
-                EC.element_to_be_clickable((By.XPATH, "//input[@name='amount']"))
+                EC.element_to_be_clickable((By.XPATH, "//input[@placeholder='0']"))
             )
             unit_input.click()
-            unit_input.send_keys(usd_str)
+
+            usd_amount = round(clout * self.usd_per_coin, 2)
+            unit_input.send_keys(str(usd_amount))
+
             review_button = self.wait.until(
                 EC.presence_of_element_located(
                     (
@@ -244,17 +269,14 @@ class Worker:
             logger.info(
                 f"recieve_number: {recieve_number}; price_per_coin: {price_per_coin}"
             )
-
             confirm_buy_button.click()
             WebDriverWait(self.driver, 30).until(
                 EC.presence_of_element_located(
                     (By.XPATH, "//span[@class='ml-10px text-primary']")
                 )
             )  # 购买成功的蓝色字
-            spend_bitclout = recieve_number * price_per_coin
-            logger.info(f"购买成功, 花费了{spend_bitclout:.9f} bitclout, 等同于 ${usd:.7f} ")
-            self.balance_bitclout -= spend_bitclout
-            self.balance_usd -= usd
+            logger.info(f"购买成功, 花费了{clout:.9f} bitclout")
+            self.balance_bitclout -= clout
         except Exception as e:
             logger.error(f"buying error: {e}")
         finally:
@@ -263,13 +285,63 @@ class Worker:
             logger.info("go back to homepage, wait for new signal")
 
     def sell(self, username: str, coin: str):
-        logging.info(f"want to sell {coin} {username} coin")
+        logger.info(f"want to sell {coin} {username} coin")
 
-    def send_clout(self, to: str, amount: float):
-        logging.info(f"want to send {amount} clout to {username}")
+    def send_clout(self, to: str, amount_str: str):
+        amount = float(amount_str)
+        logger.info(f"want to send {amount} clout to {to}")
+        if amount <= 0 or amount > (self.balance_bitclout - GAS):
+            logger.warn("transfer amount is must greater than 0")
+            return
+        try:
+            # click Send BitClout
+            send_clout_button = self.wait.until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, "//a[contains(text(),'Send BitClout')]")
+                )
+            )
+            send_clout_button.click()
+
+            username_input = self.wait.until(
+                EC.element_to_be_clickable(
+                    (
+                        By.XPATH,
+                        "//input[@placeholder='Enter a public key or username.']",
+                    )
+                )
+            )
+            username_input.click()
+            for n in to:
+                username_input.send_keys(n)
+
+            amount_input = self.driver.find_element_by_xpath(
+                "//input[@placeholder='0']"
+            )
+            amount_input.click()
+            for a in amount_str:
+                amount_input.send_keys(a)
+
+            send_button = self.driver.find_element_by_xpath(
+                "//button[contains(text(),'Send Bitclout')]"
+            )
+            send_button.click()
+
+            ok_button = self.wait.until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, "//button[contains(text(),'OK')]")
+                )
+            )
+            ok_button.click()
+            self.balance_bitclout -= amount + GAS
+        except Exception as e:
+            logger.error(f"send_clout error: {e}")
+        finally:
+            self.driver.get(self.node + "/browse")
+            self.is_busy = False
+            logger.info("go back to homepage, wait for new signal")
 
     def get_investors(self, username: str) -> dict[str, float]:
-        logging.info(f"want to get investors info of {username}")
+        logger.info(f"want to get investors info of {username}")
         investors_info = {}
         try:
             self.is_busy = True
@@ -317,7 +389,7 @@ class Worker:
             return investors_info
 
     def dm(self, username: str, dm_content: str = ""):
-        logging.info(f"want to dm {dm_content} to {username}")
+        logger.info(f"want to dm {dm_content} to {username}")
         try:
             if dm_content == "":
                 logger.warning("No content to send")
@@ -367,7 +439,7 @@ class Worker:
             logger.info("go back to homepage, wait for new signal")
 
     def follow(self, username: str):
-        logging.info(f"want to follow {username}")
+        logger.info(f"want to follow {username}")
         try:
             self.is_busy = True
             self.enter_user_page(username)
