@@ -220,7 +220,7 @@ class Worker:
     def buy(self, username: str, clout_str: str):
         clout = float(clout_str)
         if clout > self.balance_bitclout + GAS:
-            logger.error("超出最大可购买本金")
+            logger.error(f"buy {username} in {clout} exceed max balance")
             return
         logger.info(f"want to buy {username} in {clout} $CLOUT")
         try:
@@ -289,7 +289,7 @@ class Worker:
 
     def send_clout(self, to: str, amount_str: str):
         amount = float(amount_str)
-        logger.info(f"want to send {amount} clout to {to}")
+        logger.info(f"{self.public_key} want to send {amount} $CLOUT to {to}")
         if amount <= 0 or amount > (self.balance_bitclout - GAS):
             logger.warn("transfer amount is must greater than 0")
             return
@@ -318,7 +318,7 @@ class Worker:
                 "//input[@placeholder='0']"
             )
             amount_input.click()
-            for a in amount_str:
+            for a in str(amount):
                 amount_input.send_keys(a)
 
             send_button = self.driver.find_element_by_xpath(
@@ -333,6 +333,7 @@ class Worker:
             )
             ok_button.click()
             self.balance_bitclout -= amount + GAS
+            logger.info(f"{self.public_key} send {amount} $CLOUT to {to} success")
         except Exception as e:
             logger.error(f"send_clout error: {e}")
         finally:

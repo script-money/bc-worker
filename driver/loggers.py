@@ -2,6 +2,8 @@ import logging
 import sys
 from logging import Formatter
 from logging.handlers import BufferingHandler
+import os
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 LOGFORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -22,5 +24,11 @@ def setup_logging_pre() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format=LOGFORMAT,
-        handlers=[logging.StreamHandler(sys.stderr), bufferHandler],
+        handlers=[
+            logging.StreamHandler(sys.stderr),
+            bufferHandler,
+            logging.FileHandler(
+                "logs/" + datetime.now(timezone.utc).strftime("%m-%d_%H:%M") + ".log"
+            ),
+        ],
     )
