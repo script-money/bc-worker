@@ -20,13 +20,10 @@ uc.install()
 logger = logging.getLogger(__name__)
 
 
-class Signal(Enum):
-    BUY = (0,)
-    SELL = 1
-
-
 class Worker:
-    def __init__(self, name: str, private_key: str) -> None:
+    def __init__(
+        self, name: str, private_key: str, node: str = "https://bitclout.com"
+    ) -> None:
         self.is_busy = False
         self.name = name
         self.username = ""
@@ -36,6 +33,7 @@ class Worker:
         self.wallet: dict = {}
         self.balance_bitclout = 0
         self.balance_usd = 0
+        self.node = node
         capa = DesiredCapabilities.CHROME
         chrome_options = Options()
         proxy_server = os.getenv("PROXY_URL")
@@ -55,22 +53,31 @@ class Worker:
         logger.info(f"headless mode: {self.headless}")
         self.is_busy = True
         try:
-            self.driver.get("https://bitclout.com/")
+            self.driver.get(self.node)
             login_in = self.wait.until(
                 EC.visibility_of_element_located(
                     (
                         By.XPATH,
-                        "//div[@class='slide-up-2']//a[@class='landing__log-in d-none d-md-block'][contains(text(),'Log in')]",
+                        "//a[@class='landing__log-in d-none d-sm-block']",
                     )
                 )
             )
             login_in.click()
             self.switch_to_tab(1)
+            login_in_with_seed = self.wait.until(
+                EC.visibility_of_element_located(
+                    (
+                        By.XPATH,
+                        "//button[@class='btn btn-default log-in-seed']",
+                    )
+                )
+            )
+            login_in_with_seed.click()
             input_box = self.wait.until(
                 EC.visibility_of_element_located(
                     (
                         By.XPATH,
-                        "//textarea[@placeholder='Enter your secret phrase here.']",
+                        "//textarea[@placeholder='Enter your seed phrase']",
                     )
                 )
             )
@@ -80,13 +87,13 @@ class Worker:
             self.driver.find_element_by_xpath(
                 "//button[contains(text(),'Load Account')]"
             ).click()
+
             select_account = self.wait.until(
-                EC.visibility_of_element_located((By.XPATH, "//li[1]"))
+                EC.visibility_of_element_located(
+                    (By.XPATH, "//div[contains(text(),'BC1YL')]")
+                )
             )
             select_account.click()
-            self.driver.find_element_by_xpath(
-                "//button[contains(text(), 'Log in to bitclout.com')]"
-            ).click()
             self.switch_to_tab(0)
             # read wallet
             wallet_button = self.wait.until(
@@ -105,7 +112,9 @@ class Worker:
             # self.username = self.driver.find_element_by_xpath(
             #     "//div[@class='change-account-selector__ellipsis-restriction cursor-pointer ng-star-inserted']").text
             self.balance_bitclout = float(
-                self.driver.find_element_by_xpath("//div[@class='col-9']/div[1]").text
+                self.driver.find_element_by_xpath(
+                    "//div[@class='col-9']/div[1]"
+                ).text.split(" ")[0]
             )
             balance_usd = self.driver.find_element_by_xpath(
                 "//div[@class='col-9']/div[2]"
@@ -115,7 +124,7 @@ class Worker:
                 f"balance_bitclout: {self.balance_bitclout}, balance_usd: {self.balance_usd}"
             )
             coin_name_elements = self.driver.find_elements_by_xpath(
-                "//div[@class='text-truncate holdings__name']/span"
+                "//div[@class='text-truncate holdings__name']/span[not(contains(@class,'ml-1'))]"
             )
             coin_count_elements = self.driver.find_elements_by_xpath(
                 "//div[@class='text-grey8A fs-12px text-right']"
@@ -137,6 +146,7 @@ class Worker:
         except Exception as e:
             logger.error(f"login in error: {e}")
             self.driver.save_screenshot("error_launch.png")
+            self.exit()
             self.driver.close()
         finally:
             self.is_busy = False
@@ -145,6 +155,7 @@ class Worker:
         """
         BUY = 0
         SELL = 1
+        SEND_CLOUT = 2
         FOLLOW = 3
         DM = 4
         DM_TO_INVESTORS = 5
@@ -155,6 +166,8 @@ class Worker:
             self.buy(*args)
         elif signal == 1:
             self.sell(*args)
+        elif signal == 2:
+            self.send_clout(*args)
         elif signal == 3:
             self.follow(*args)
         elif signal == 4:
@@ -245,12 +258,15 @@ class Worker:
         except Exception as e:
             logger.error(f"buying error: {e}")
         finally:
-            self.driver.get("https://bitclout.com/browse")
+            self.driver.get(self.node + "/browse")
             self.is_busy = False
             logger.info("go back to homepage, wait for new signal")
 
     def sell(self, username: str, coin: str):
         logging.info(f"want to sell {coin} {username} coin")
+
+    def send_clout(self, to: str, amount: float):
+        logging.info(f"want to send {amount} clout to {username}")
 
     def get_investors(self, username: str) -> dict[str, float]:
         logging.info(f"want to get investors info of {username}")
@@ -295,7 +311,7 @@ class Worker:
         except Exception as e:
             logger.error(f"get {username}'s investors error: {e}")
         finally:
-            self.driver.get("https://bitclout.com/browse")
+            self.driver.get(self.node + "/browse")
             self.is_busy = False
             logger.info("go back to homepage, wait for new signal")
             return investors_info
@@ -307,7 +323,7 @@ class Worker:
                 logger.warning("No content to send")
                 raise DMEmptyException
             self.is_busy = True
-            self.driver.get("https://bitclout.com/inbox")
+            self.driver.get(self.node + "/inbox")
             search_input = self.wait.until(
                 EC.visibility_of_element_located(
                     (By.XPATH, "//input[@placeholder='Search']")
@@ -346,7 +362,7 @@ class Worker:
             self.driver.save_screenshot("error_dm.png")
             logger.error(f"error when dm: {e}")
         finally:
-            self.driver.get("https://bitclout.com/browse")
+            self.driver.get(self.node + "/browse")
             self.is_busy = False
             logger.info("go back to homepage, wait for new signal")
 
@@ -380,15 +396,15 @@ class Worker:
             self.driver.save_screenshot("error_follow.png")
             logger.error(f"error when follow: {e}")
         finally:
-            self.driver.get("https://bitclout.com/browse")
+            self.driver.get(self.node + "/browse")
             self.is_busy = False
             logger.info("go back to homepage, wait for new signal")
             return
 
     def enter_user_page(self, username: str):
         if (
-            not "https://bitclout.com/browse" in self.driver.current_url
-            and not "https://bitclout.com/wallet" in self.driver.current_url
+            not self.node + "/browse" in self.driver.current_url
+            and not self.node + "/wallet" in self.driver.current_url
         ):
             logger.warning("current page is not home/wallet page")
             return
@@ -409,6 +425,10 @@ class Worker:
         )
         user_page_enter_button.click()
         time.sleep(1)
+
+    def exit(self):
+        logger.info("清除localstorage users")
+        self.driver.execute_script("window.localStorage.removeItem('users')")
 
     def open_new_tab(self):
         self.driver.execute_script("window.open('');")
