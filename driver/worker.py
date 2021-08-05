@@ -28,6 +28,7 @@ class Operation(IntEnum):
     DM = 4
     DM_TO_INVESTORS = 5
     FOLLOW_AND_DM = 7
+    DO_NOTHING = 99
 
 
 GAS = 0.0000002
@@ -44,7 +45,7 @@ class Worker:
         self.is_busy = False
         self.name = name
         self.username = ""
-        self.headless = False
+        self.headless = os.getenv("HEADLESS")
         self.private_key = private_key
         self.public_key = ""
         self.wallet: dict = {}
@@ -57,10 +58,13 @@ class Worker:
             proxy_server = os.getenv("PROXY_URL")
             if proxy_server != "" and proxy_server != None:
                 chrome_options.add_argument(f"--proxy-server={proxy_server}")
-        if self.headless:
-            chrome_options.add_argument("--headless")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1280, 800")
+        if not self.headless:
+            chrome_options.add_argument("--headless=false")
+            chrome_options.add_argument("--disable-gpu=false")
+        else:
+            chrome_options.add_argument("--headless ")
+            chrome_options.add_argument("--disable-gpu ")
+        chrome_options.add_argument("--window-size=1280, 800")
         capa["pageLoadStrategy"] = "eager"
         self.driver = webdriver.Chrome(
             desired_capabilities=capa, chrome_options=chrome_options
@@ -68,7 +72,7 @@ class Worker:
         self.wait = WebDriverWait(self.driver, 60)
 
     def launch(self):
-        logger.info(f"headless mode: {self.headless}")
+        logger.info(f"launching {self.private_key}")
         self.is_busy = True
         try:
             self.driver.get(self.node)
@@ -166,7 +170,6 @@ class Worker:
         except Exception as e:
             logger.error(f"login in error: {e}")
             self.driver.save_screenshot("error_launch.png")
-            self.exit()
             self.driver.close()
         finally:
             self.is_busy = False
@@ -287,39 +290,58 @@ class Worker:
     def sell(self, username: str, coin: str):
         logger.info(f"want to sell {coin} {username} coin")
 
-    def send_clout(self, to: str, amount_str: str):
-        amount = float(amount_str)
-        logger.info(f"{self.public_key} want to send {amount} $CLOUT to {to}")
-        if amount <= 0 or amount > (self.balance_bitclout - GAS):
-            logger.warn("transfer amount is must greater than 0")
-            return
+    def send_clout(self, to: str, amount_str: str = "MAX"):
+        if amount_str != "MAX":
+            amount = float(amount_str)
+            logger.info(f"{self.public_key} want to send {amount} $CLOUT to {to}")
+            if amount <= 0 or amount > (self.balance_bitclout - GAS):
+                logger.warn(
+                    "transfer amount is must greater than 0 or balance not enough"
+                )
+                return
         try:
             # click Send BitClout
             send_clout_button = self.wait.until(
                 EC.element_to_be_clickable(
-                    (By.XPATH, "//a[contains(text(),'Send BitClout')]")
+                    (By.XPATH, "//a[contains(text(),'Send $CLOUT')]")
                 )
             )
             send_clout_button.click()
 
-            username_input = self.wait.until(
-                EC.element_to_be_clickable(
+            search_input = self.wait.until(
+                EC.visibility_of_element_located(
                     (
                         By.XPATH,
-                        "//input[@placeholder='Enter a public key or username.']",
+                        "//div[contains(text(),'Public key or username to pay: ')]//input[@placeholder='Search']",
                     )
                 )
             )
-            username_input.click()
-            for n in to:
-                username_input.send_keys(n)
-
-            amount_input = self.driver.find_element_by_xpath(
-                "//input[@placeholder='0']"
+            search_input.click()
+            search_input.send_keys(to)
+            user_button = self.wait.until(
+                EC.visibility_of_element_located(
+                    (
+                        By.XPATH,
+                        f"//div[contains(@class, 'search-bar__results-dropdown')]/div[1]/div/div[2]/span[1][contains(text(),'{to}')]",
+                    )
+                )
             )
-            amount_input.click()
-            for a in str(amount):
-                amount_input.send_keys(a)
+
+            user_button.click()
+
+            if amount_str != "MAX":
+                amount_input = self.driver.find_element_by_xpath(
+                    "//input[@placeholder='0']"
+                )
+                amount_input.click()
+                for a in str(amount):
+                    amount_input.send_keys(a)
+            else:
+                max_button = self.driver.find_element_by_xpath(
+                    "//button[contains(text(),'Max')]"
+                )
+                max_button.click()
+                time.sleep(1)
 
             send_button = self.driver.find_element_by_xpath(
                 "//button[contains(text(),'Send Bitclout')]"
@@ -332,8 +354,17 @@ class Worker:
                 )
             )
             ok_button.click()
-            self.balance_bitclout -= amount + GAS
-            logger.info(f"{self.public_key} send {amount} $CLOUT to {to} success")
+            self.wait.until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, "//h2[contains(text(),'Success!')]")
+                )
+            )
+            if amount_str != "MAX":
+                self.balance_bitclout -= amount + GAS
+                logger.info(f"{self.public_key} send {amount} $CLOUT to {to} success")
+            else:
+                self.balance_bitclout = 0
+                logger.info(f"{self.public_key} send ALL $CLOUT to {to} success")
         except Exception as e:
             logger.error(f"send_clout error: {e}")
         finally:
@@ -498,10 +529,6 @@ class Worker:
         )
         user_page_enter_button.click()
         time.sleep(1)
-
-    def exit(self):
-        logger.info("清除localstorage users")
-        self.driver.execute_script("window.localStorage.removeItem('users')")
 
     def open_new_tab(self):
         self.driver.execute_script("window.open('');")

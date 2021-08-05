@@ -13,7 +13,7 @@ def main():
 
     try:
         to = "scriptmoney"
-        amount = 0.01
+        amount = 0.001
         signal = f"2 {to} {amount}"
         logger.info(f"send: {signal}")
         socket.send_string(signal)
